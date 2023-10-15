@@ -2,49 +2,51 @@
 #include <thread>
 #include "Hack.hpp"
 
-namespace Offsets 
+namespace Constants
 {
-	constexpr std::ptrdiff_t health = 0x358;
-	constexpr std::ptrdiff_t bulletTime = 0xC;
+    const float MAXIMUM_HEALTH = 300.0f;
+    const float MAXIMUM_BULLET_TIME = 1.0f;
+
+    const int MULLISECONDS_TO_SLEEP = 100;
 }
 
-namespace Constants 
+DWORD __stdcall HackThread(const LPVOID parameter)
 {
-	const float MAXIMUM_HEALTH = 300.0f;
-	const float MAXIMUM_BULLET_TIME = 1.0f;
-}
+    Hack hack;
 
-void HackThread(const HMODULE instance)
-{
-	Hack hack;
+    const HMODULE* const ourModule = static_cast<HMODULE*>(parameter);
 
-	while (!GetAsyncKeyState(VK_END))
-	{
-		float* healthPointer = reinterpret_cast<float*>(*hack.GetHealthModuleBases() + Offsets::health);;
-		float* bulletTimePointer = reinterpret_cast<float*>(*hack.GetBulletTimeModuleBase() + Offsets::bulletTime);;
+    while (!GetAsyncKeyState(VK_END))
+    {
+        hack.SetHealth(Constants::MAXIMUM_HEALTH);
+        hack.SetBulletTime(Constants::MAXIMUM_BULLET_TIME);
 
-		hack.FreezeFloatValue(healthPointer, Constants::MAXIMUM_HEALTH);
-		hack.FreezeFloatValue(bulletTimePointer, Constants::MAXIMUM_BULLET_TIME);
+        Sleep(Constants::MULLISECONDS_TO_SLEEP);
+    }
 
-		Sleep(100);
-	}
+    HMODULE instance = *ourModule;
+    delete ourModule;
+    FreeLibraryAndExitThread(instance, 0);
 
-	FreeLibraryAndExitThread(instance, 0);
+    return 0;
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved)
 {
-	if (reason == DLL_PROCESS_ATTACH)
-	{
-		DisableThreadLibraryCalls(instance);
+    if (reason == DLL_PROCESS_ATTACH)
+    {
+        DisableThreadLibraryCalls(instance);
 
-		const HANDLE thread = CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(HackThread), instance, 0, nullptr);
+        HMODULE* const ourModule = new HMODULE;
+        *ourModule = instance;
 
-		if (thread)
-		{
-			CloseHandle(thread);
-		}
-	}
-	
-	return TRUE;
+        const HANDLE thread = CreateThread(nullptr, 0, HackThread, ourModule, 0, nullptr);
+
+        if (thread)
+        {
+            CloseHandle(thread);
+        }
+    }
+
+    return TRUE;
 }
